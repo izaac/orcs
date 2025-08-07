@@ -1,30 +1,24 @@
 #!/bin/sh
 
 # install.sh
-# A simple installer script for the ORCS tool.
-# It downloads the necessary files from a remote repository.
+# An installer for the ORCS tool. It installs the project into a dedicated
+# directory and creates a symbolic link for easy access.
 
 set -e # Exit immediately if a command exits with a non-zero status.
 
 # --- Configuration ---
 
-# The location of the raw script files.
-# IMPORTANT: Replace this URL with your actual GitHub repository URL.
-SRC_URL="https://raw.githubusercontent.com/user/orcs/main"
+# The base URL of the raw repository files.
+# IMPORTANT: Replace this with your actual GitHub repository URL.
+readonly SRC_URL="https://raw.githubusercontent.com/user/orcs/main"
 
-# The directory to install the scripts into.
-# $HOME/.local/bin is a standard location for user-specific executables.
-INSTALL_DIR="$HOME/.local/bin"
+# The directory where the project files will be stored.
+readonly INSTALL_DIR="$HOME/.orcs"
 
-# List of files required by the ORCS tool.
-FILES="orcs orcs-parse.awk orcs-format.awk style.sh"
-
-# Scripts that need to be made executable.
-EXEC_FILES="orcs orcs-parse.awk orcs-format.awk"
+# The directory where the executable's symlink will be placed.
+readonly BIN_DIR="$HOME/.local/bin"
 
 # --- Helper Functions for Colorized Output ---
-
-# These are self-contained and do not require style.sh
 color_green() {
   printf '\033[32m%s\033[0m\n' "$1"
 }
@@ -41,9 +35,9 @@ main() {
   # 1. Welcome and Security Warning
   color_bold "ORCS Installer"
   echo "This script will install the ORCS tool into: $INSTALL_DIR"
+  echo "A symbolic link will be created at: $BIN_DIR/orcs"
   color_yellow "Warning: Always inspect scripts from the internet before running them."
   printf "Press Enter to continue, or Ctrl+C to cancel."
-  # SC3061 Fix: Provide a dummy variable for POSIX compliance.
   read -r _
 
   # 2. Check for dependencies (curl or wget)
@@ -56,40 +50,50 @@ main() {
     exit 1
   fi
 
-  # 3. Create the installation directory if it doesn't exist
-  # SC2028 Fix: Use printf for portable handling of '\n'.
-  printf "\nEnsuring installation directory exists...\n"
-  mkdir -p "$INSTALL_DIR"
+  # 3. Create the installation directories
+  printf "\nCreating installation directories...\n"
+  mkdir -p "$INSTALL_DIR/bin"
+  mkdir -p "$INSTALL_DIR/lib"
+  mkdir -p "$BIN_DIR"
 
   # 4. Download all the necessary files
   echo "Downloading ORCS files..."
-  for file in $FILES; do
-    printf "  - Downloading %s..." "$file"
-    # Download the file from the source URL to the installation directory
-    eval "$downloader" "${SRC_URL}/${file}" >"${INSTALL_DIR}/${file}"
+  # Download main executable
+  printf "  - Downloading bin/orcs..."
+  eval "$downloader" "${SRC_URL}/bin/orcs" >"${INSTALL_DIR}/bin/orcs"
+  printf " done\n"
+
+  # Download library files
+  for file in orcs-parse.awk orcs-format.awk style.sh; do
+    printf "  - Downloading lib/%s..." "$file"
+    eval "$downloader" "${SRC_URL}/lib/${file}" >"${INSTALL_DIR}/lib/${file}"
     printf " done\n"
   done
 
-  # 5. Set execute permissions on the required scripts
+  # 5. Set execute permissions
   echo "Setting permissions..."
-  for file in $EXEC_FILES; do
-    chmod +x "${INSTALL_DIR}/${file}"
-  done
+  chmod +x "${INSTALL_DIR}/bin/orcs"
+  chmod +x "${INSTALL_DIR}/lib/orcs-parse.awk"
+  chmod +x "${INSTALL_DIR}/lib/orcs-format.awk"
 
-  # 6. Check if the installation directory is in the user's PATH
+  # 6. Create the symbolic link
+  echo "Creating symbolic link..."
+  ln -sf "${INSTALL_DIR}/bin/orcs" "${BIN_DIR}/orcs"
+
+  # 7. Check if the installation directory is in the user's PATH
   case ":$PATH:" in
-  *":$INSTALL_DIR:"*)
+  *":$BIN_DIR:"*)
     # PATH is correctly set
     ;;
   *)
     # PATH is not set, print a warning
-    color_yellow "\nWarning: Your PATH does not seem to include $INSTALL_DIR."
+    color_yellow "\nWarning: Your PATH does not seem to include $BIN_DIR."
     color_yellow "You will need to add it to your shell's configuration file (e.g., .bashrc, .zshrc):"
     color_bold "  export PATH=\"\$HOME/.local/bin:\$PATH\""
     ;;
   esac
 
-  # 7. Success!
+  # 8. Success!
   color_green "\n✅ ORCS has been successfully installed."
   echo "Run 'orcs --help' to get started."
 }

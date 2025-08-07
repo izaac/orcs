@@ -58,12 +58,14 @@ function run_test_suite() {
   local raw_output
   raw_output=$(sudo rc-status --all --unused)
 
+
   # --- Test 2: Parsing with awk ---
   time_it "2. Parsing (orcs-parse.awk)" \
-    'parsed_output=$(printf "%s" "$raw_output" | ./orcs-parse.awk)'
+    'parsed_output=$(printf "%s" "$raw_output" | ./lib/orcs-parse.awk)'
   # Store parsed data
   local parsed_output
-  parsed_output=$(printf "%s" "$raw_output" | ./orcs-parse.awk)
+  parsed_output=$(printf "%s" "$raw_output" | ./lib/orcs-parse.awk)
+
 
   # --- Test 3: PID Lookup Loop ---
   local pid_lookup_command='
@@ -81,9 +83,10 @@ function run_test_suite() {
   '
   time_it "3. PID Lookup (Shell Loop)" "$pid_lookup_command"
 
+
   # --- Test 4: Full End-to-End Execution ---
   time_it "4. Full Script (End-to-End)" \
-    './orcs --all'
+    './bin/orcs --all'
 
   echo
 }
@@ -99,7 +102,7 @@ function print_report() {
   local max_len=0
   local test_name
   for test_name in "${!PERF_RESULTS[@]}"; do
-    if ((${#test_name} > max_len)); then
+    if (( ${#test_name} > max_len )); then
       max_len=${#test_name}
     fi
   done
@@ -107,7 +110,7 @@ function print_report() {
   # Print each result in a formatted table, sorted by name
   local sorted_keys
   readarray -t sorted_keys < <(printf '%s\n' "${!PERF_RESULTS[@]}" | sort)
-
+  
   for test_name in "${sorted_keys[@]}"; do
     printf "%-*s: ${C_BOLD}%s s${C_RESET}\n" "$max_len" "$test_name" "${PERF_RESULTS[$test_name]}"
   done
@@ -122,7 +125,7 @@ function print_report() {
 
 function main() {
   # Ensure required files exist
-  for file in orcs orcs-parse.awk orcs-format.awk; do
+  for file in bin/orcs lib/orcs-parse.awk lib/orcs-format.awk; do
     if [[ ! -f "$file" ]]; then
       printf "${C_YELLOW}Error: Test script requires '%s' to be in the same directory.${C_RESET}\n" "$file"
       exit 1
