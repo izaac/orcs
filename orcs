@@ -1,17 +1,19 @@
 #!/bin/sh
 
 # orcs
-# This is a POSIX-compliant shell wrapper for the OpenRC status tool.
-# It uses a modular design by calling the orcs.awk script.
+# A POSIX-compliant shell wrapper for viewing OpenRC services.
+# It uses helper awk scripts for parsing and formatting.
 
 # Determine the directory of the script to correctly source files.
-SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+SCRIPT_DIR=$(dirname "$0")
 
-# Check that the style.sh file exists before sourcing it.
-if [ ! -f "${SCRIPT_DIR}/style.sh" ]; then
-  echo "Error: style.sh not found in the script directory." >&2
-  exit 1
-fi
+# Check that all required script files exist before sourcing.
+for file in style.sh orcs-parse.awk orcs-format.awk; do
+  if [ ! -f "${SCRIPT_DIR}/${file}" ]; then
+    echo "Error: Dependency '${file}' not found in the script directory." >&2
+    exit 1
+  fi
+done
 . "${SCRIPT_DIR}/style.sh"
 
 # Function to get and display services
@@ -33,22 +35,72 @@ get_and_display_services() {
     return 1
   fi
 
-  sort_key=4
-  if [ "$sort_by" = "name" ]; then
-    sort_key=1
-  fi
-
-  formatted_output=""
-  # Combine outputs and pipe to awk for parsing and formatting.
-  # We pass all necessary variables to awk for a self-contained script.
-  formatted_output=$(
-    printf '%s\n' "$all_output" "$unused_output" | "${SCRIPT_DIR}/orcs.awk" -v GREEN="$GREEN" -v RED="$RED" -v YELLOW="$YELLOW" -v CYAN="$CYAN" -v MAGENTA="$MAGENTA" -v NC="$NC" -v view_flag="$view_flag" | sort -t ';' -k "$sort_key"
+  # 1. Parse the raw output into simple, semicolon-separated lines.
+  parsed_output=$(
+    printf '%s\n' "$all_output" "$unused_output" | awk -f "${SCRIPT_DIR}/orcs-parse.awk"
   )
 
-  # Print the header and use column to format the output into a neat table.
-  printf "%s;%s;%s;%s\n" "${GREEN}Service" "Status" "PID" "Runlevel${NC}" | column -s';' -t
-  printf "%s\n" "${GREEN}-----------------------------------------------------------------------${NC}"
-  echo "$formatted_output" | column -s';' -t
+  # Run ps only once and store the process list for efficiency.
+  proc_list=$(/bin/ps -o pid,comm,args ax)
+
+  # 2. Process each line to add PIDs/colors, then sort the results.
+  sort_key=4 # Default sort by runlevel
+  [ "$sort_by" = "name" ] && sort_key=1
+
+  sorted_data=$(
+    printf "%s\n" "$parsed_output" | while IFS= read -r line; do
+      # Use POSIX-compliant parameter expansion to split the line.
+      service="${line%%;*}"
+      temp="${line#*;}"
+      status="${temp%%;*}"
+      runlevel="${temp#*;}"
+
+      # Filter services based on the view_flag.
+      case "$view_flag" in
+      "active") [ "$status" != "started" ] && continue ;;
+      "inactive") [ "$status" = "started" ] && continue ;;
+      esac
+
+      # Skip PID lookup for non-started services or placeholder services.
+      if [ "$status" != "started" ] || [ "$service" = "acpid" ] || [ "$service" = "local" ]; then
+        pid="-"
+      else
+        # Search the stored $proc_list variable instead of running ps again.
+        # First, try to match the exact command name (column 2).
+        pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" '$2 == s {print $1; exit}')
+
+        # If that fails, try a flexible substring search on the full arguments.
+        if [ -z "$pid" ]; then
+          pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" 'NR>1 && index($0, s) && !/awk/ && !/orcs/ {print $1; exit}')
+        fi
+
+        # If still no PID, default to "-".
+        [ -z "$pid" ] && pid="-"
+      fi
+
+      # Add color and symbols to the status text.
+      status_text="${YELLOW}⚠️ ${status}${NC}"
+      if [ "$status" = "started" ]; then
+        status_text="${GREEN}✅ ${status}${NC}"
+      elif [ "$status" = "stopped" ]; then
+        status_text="${RED}❌ ${status}${NC}"
+      elif [ "$status" = "disabled" ]; then
+        status_text="${YELLOW}🚫 ${status}${NC}"
+      fi
+
+      # Print the fully formatted line to be piped to the sort command.
+      printf "%s\n" "${CYAN}${service}${NC};${status_text};${MAGENTA}${pid}${NC};${BLUE}${runlevel}${NC}"
+    done | sort -t ';' -k "$sort_key"
+  )
+
+  # 3. Format the final output into a neat table.
+  header="${GREEN}Service;Status;PID;Runlevel${NC}"
+
+  # Group the header and sorted data into a single stream for the formatter.
+  {
+    printf "%s\n" "$header"
+    printf "%s\n" "$sorted_data"
+  } | awk -f "${SCRIPT_DIR}/orcs-format.awk"
 }
 
 # Function to display the help message
