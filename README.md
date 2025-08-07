@@ -1,4 +1,4 @@
-# ORCS: OpenRC Service Manager
+# ORCS: OpenRC Service Viewer
 
 **ORCS** is a simple command-line tool for viewing OpenRC services.  
 It provides a color-coded table of service statuses, PIDs, and runlevels, with options for filtering and sorting.
