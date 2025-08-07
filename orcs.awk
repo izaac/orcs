@@ -20,7 +20,7 @@ $2 == "[" {
     service_name=$1
     status=$3
     
-    # Skip services that don't have a meaningful PID to display
+    # Skip services that don'\''t have a meaningful PID to display
     if (service_name == "acpid" || service_name == "local") {
         next
     }
@@ -33,17 +33,18 @@ $2 == "[" {
         next
     }
     
-    # Find PID using pgrep
+    # Find PID using a system command.
     pid_output = ""
     cmd = "sudo pgrep -f -x " service_name
-    if ((cmd | getline pid_output) > 0) {
+    if (system(cmd " > /dev/null") == 0) {
+        cmd | getline pid_output
         pid = pid_output
     } else {
         pid = "-"
     }
     close(cmd)
 
-    # Choose colors and symbols based on status
+    # Choose colors and symbols based on status for better readability
     status_text = YELLOW "⚠️ " status NC
     if (status == "started") {
         status_text = GREEN "✅ " status NC

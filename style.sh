@@ -1,6 +1,6 @@
 # style.sh
 # This script defines functions for colored and formatted terminal output.
-# It uses tput for portability
+# It uses tput for portability and ensures a clean, reusable interface.
 
 # Define text colors
 BLACK=$(tput setaf 0)
