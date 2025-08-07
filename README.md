@@ -1,6 +1,6 @@
 # ORCS: OpenRC Service Manager
 
-**ORCS** is a simple command-line tool for viewing and managing OpenRC services.
+**ORCS** is a simple command-line tool for viewing and managing OpenRC services.  
 It provides a color-coded table of service statuses, PIDs, and runlevels, with options for filtering and sorting.
 
 ---
@@ -9,46 +9,35 @@ It provides a color-coded table of service statuses, PIDs, and runlevels, with o
 
 ### Easy Install (Recommended)
 
-You can install ORCS with a single command using `curl` or `wget`. This will download and run an installer script that places all the necessary files in `~/.local/bin/`.
+You can install ORCS with a single command. The installer must be run with `sudo` because it places the files in system-wide directories (`/usr/local/lib` and `/usr/local/bin`).
 
-**With `curl`:**
+**With curl:**
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/izaac/orcs/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/izaac/orcs/main/install.sh | sudo sh
 ```
 
-**With `wget`:**
+**With wget:**
 
 ```sh
-wget -qO- https://raw.githubusercontent.com/izaac/orcs/main/install.sh | sh
+wget -qO- https://raw.githubusercontent.com/izaac/orcs/main/install.sh | sudo sh
 ```
 
 ### Manual Installation
 
-If you prefer to install manually, for example after cloning from Git:
+If you prefer to install manually after cloning the repository:
 
-1. **Navigate to the project directory.**
+1. Navigate to the project directory:
 
    ```sh
-   cd orcs-project
+   cd orcs
    ```
 
-2. **Create a symbolic link to the `orcs` executable from a directory in your PATH.**
-   This makes the `orcs` command available system-wide while keeping the project files self-contained. A standard location is `~/.local/bin/`.
+2. Create a symbolic link to the `orcs` executable from a directory in your `PATH`.  
+   A standard location for system-wide commands is `/usr/local/bin/`:
 
    ```sh
-   # Ensure the target directory exists
-   mkdir -p ~/.local/bin
-
-   # Create the symbolic link (use 'pwd' to get the absolute path)
-   ln -s "$(pwd)/bin/orcs" ~/.local/bin/orcs
-   ```
-
-3. **Ensure `~/.local/bin` is in your shell's `PATH`.**
-   Most modern systems configure this automatically. You can check by running `echo $PATH`. If it's not present, add the following line to your shell's startup file (e.g., `~/.bashrc`, `~/.zshrc`):
-
-   ```sh
-   export PATH="$HOME/.local/bin:$PATH"
+   sudo ln -s "$(pwd)/bin/orcs" /usr/local/bin/orcs
    ```
 
 ---
@@ -59,10 +48,10 @@ To remove ORCS from your system, simply delete the project directory and the sym
 
 ```sh
 # Remove the symbolic link
-rm ~/.local/bin/orcs
+sudo rm /usr/local/bin/orcs
 
-# Remove the project directory
-rm -rf /path/to/your/orcs-project
+# Remove the project's library files
+sudo rm -rf /usr/local/lib/orcs
 ```
 
 ---
@@ -100,4 +89,7 @@ sudo orcs start docker
 
 ## Disclaimer
 
-This tool is an independent project and is not affiliated with or endorsed by the official OpenRC project. It is a wrapper script designed for convenience and should be used at your own risk. The authors are not responsible for any damage to your system. When in doubt, always use the official `rc-service` and `rc-status` commands directly.
+This tool is an independent project and is not affiliated with or endorsed by the official OpenRC project.  
+It is a wrapper script designed for convenience and should be used at your own risk.  
+The authors are not responsible for any damage to your system.  
+When in doubt, always use the official `rc-service` and `rc-status` commands directly.
