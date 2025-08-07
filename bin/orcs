@@ -5,8 +5,6 @@
 # It uses helper awk scripts for parsing and formatting.
 
 # Find the real directory of the script, resolving symlinks.
-# This is necessary for the script to find its library files
-# when run from a symbolic link (e.g., in /usr/local/bin).
 REAL_PATH="$0"
 while [ -L "$REAL_PATH" ]; do
   DIR=$(dirname "$REAL_PATH")
@@ -20,7 +18,7 @@ SCRIPT_DIR=$(dirname "$REAL_PATH")
 LIB_DIR="${SCRIPT_DIR}/../lib"
 
 # Check that all required script files exist before sourcing.
-for file in style.sh orcs-parse.awk orcs-format.awk; do
+for file in style.sh orcs-parse.awk orcs-decorate.awk orcs-format.awk; do
   if [ ! -f "${LIB_DIR}/${file}" ]; then
     echo "Error: Dependency '${file}' not found in '${LIB_DIR}'." >&2
     exit 1
@@ -56,33 +54,18 @@ display_service_table() {
   sort_by="$2"
 
   parsed_output=$(generate_service_list)
-  proc_list=$(/bin/ps -o pid,comm,args ax)
+  proc_list=$(/bin/ps -o pid,args ax)
 
-  # Process each line to add PIDs and colors.
+  # Process the data with the new, efficient awk script.
   data_to_filter=$(
-    printf "%s\n" "$parsed_output" | while IFS= read -r line; do
-      service="${line%%;*}"
-      temp="${line#*;}"
-      status="${temp%%;*}"
-      runlevel="${temp#*;}"
-
-      if [ "$status" != "started" ] || [ "$service" = "acpid" ] || [ "$service" = "local" ]; then
-        pid="-"
-      else
-        pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" '$2 == s {print $1; exit}')
-        if [ -z "$pid" ]; then
-          pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" 'NR>1 && index($0, s) && !/awk/ && !/orcs/ {print $1; exit}')
-        fi
-        [ -z "$pid" ] && pid="-"
-      fi
-
-      status_text="${YELLOW}⚠️ ${status}${NC}"
-      if [ "$status" = "started" ]; then status_text="${GREEN}✅ ${status}${NC}"; fi
-      if [ "$status" = "stopped" ]; then status_text="${RED}❌ ${status}${NC}"; fi
-      if [ "$status" = "disabled" ]; then status_text="${YELLOW}🚫 ${status}${NC}"; fi
-
-      printf "%s\n" "${CYAN}${service}${NC};${status_text};${MAGENTA}${pid}${NC};${BLUE}${runlevel}${NC}"
-    done
+    {
+      printf "%s\n" "$proc_list"
+      printf "%s\n" "---PROCESS_LIST_END---"
+      printf "%s\n" "$parsed_output"
+    } | awk \
+      -v GREEN="$GREEN" -v RED="$RED" -v YELLOW="$YELLOW" \
+      -v CYAN="$CYAN" -v MAGENTA="$MAGENTA" -v NC="$NC" \
+      -f "${LIB_DIR}/orcs-decorate.awk"
   )
 
   # Apply the view filter.
@@ -91,7 +74,7 @@ display_service_table() {
     data_to_sort=$(printf "%s\n" "$data_to_filter" | grep "✅")
     ;;
   "inactive")
-    data_to_sort=$(printf "%s\n" "$data_to_filter" | grep -E "❌|�")
+    data_to_sort=$(printf "%s\n" "$data_to_filter" | grep -E "❌|🚫")
     ;;
   *) # Default to "all"
     data_to_sort="$data_to_filter"
@@ -147,9 +130,9 @@ show_help() {
   print_info "Usage: orcs [COMMAND | OPTIONS]"
   echo ""
   print_info "Commands:"
-  printf "  %s <SERVICE>%s      Stop a service by its name\n" "stop"
-  printf "  %s <SERVICE>%s     Start a service by its name\n" "start"
-  printf "  %s <SERVICE>%s   Restart a service by its name\n" "restart"
+  printf "  %s%s%s <SERVICE>      Stop a service by its name\n" "$BOLD" "stop" "$NC"
+  printf "  %s%s%s <SERVICE>     Start a service by its name\n" "$BOLD" "start" "$NC"
+  printf "  %s%s%s <SERVICE>   Restart a service by its name\n" "$BOLD" "restart" "$NC"
   echo ""
   print_info "Options:"
   printf "  %s%s%s            Display only active services (default)\n" "$BOLD" "-a, --active" "$NC"

@@ -71,7 +71,7 @@ main() {
   printf " done\n"
 
   # Download library files
-  for file in orcs-parse.awk orcs-format.awk style.sh; do
+  for file in orcs-parse.awk orcs-decorate.awk orcs-format.awk style.sh; do
     printf "  - Downloading lib/%s..." "$file"
     eval "$downloader" "${SRC_URL}/lib/${file}" >"${INSTALL_DIR}/lib/${file}"
     printf " done\n"
@@ -81,6 +81,7 @@ main() {
   echo "Setting permissions..."
   chmod +x "${INSTALL_DIR}/bin/orcs"
   chmod +x "${INSTALL_DIR}/lib/orcs-parse.awk"
+  chmod +x "${INSTALL_DIR}/lib/orcs-decorate.awk"
   chmod +x "${INSTALL_DIR}/lib/orcs-format.awk"
 
   # 7. Create the symbolic link
