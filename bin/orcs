@@ -4,15 +4,24 @@
 # A POSIX-compliant shell wrapper for viewing and managing OpenRC services.
 # It uses helper awk scripts for parsing and formatting.
 
-# Determine the directory of the script to correctly source files.
-# The main 'orcs' script will be in 'bin', so the library is one level up.
-SCRIPT_DIR=$(dirname "$0")
+# Find the real directory of the script, resolving symlinks.
+# This is necessary for the script to find its library files
+# when run from a symbolic link (e.g., in /usr/local/bin).
+REAL_PATH="$0"
+while [ -L "$REAL_PATH" ]; do
+  DIR=$(dirname "$REAL_PATH")
+  REAL_PATH=$(readlink "$REAL_PATH")
+  case "$REAL_PATH" in
+  /*) ;;
+  *) REAL_PATH="$DIR/$REAL_PATH" ;;
+  esac
+done
+SCRIPT_DIR=$(dirname "$REAL_PATH")
 LIB_DIR="${SCRIPT_DIR}/../lib"
 
 # Check that all required script files exist before sourcing.
 for file in style.sh orcs-parse.awk orcs-format.awk; do
-  if [ ! -f "${LIB_DIR}/${file}" ];
-  then
+  if [ ! -f "${LIB_DIR}/${file}" ]; then
     echo "Error: Dependency '${file}' not found in '${LIB_DIR}'." >&2
     exit 1
   fi
@@ -52,53 +61,53 @@ display_service_table() {
   # Process each line to add PIDs and colors.
   data_to_filter=$(
     printf "%s\n" "$parsed_output" | while IFS= read -r line; do
-        service="${line%%;*}"
-        temp="${line#*;}"
-        status="${temp%%;*}"
-        runlevel="${temp#*;}"
+      service="${line%%;*}"
+      temp="${line#*;}"
+      status="${temp%%;*}"
+      runlevel="${temp#*;}"
 
-        if [ "$status" != "started" ] || [ "$service" = "acpid" ] || [ "$service" = "local" ]; then
-            pid="-"
-        else
-            pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" '$2 == s {print $1; exit}')
-            if [ -z "$pid" ]; then
-                pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" 'NR>1 && index($0, s) && !/awk/ && !/orcs/ {print $1; exit}')
-            fi
-            [ -z "$pid" ] && pid="-"
+      if [ "$status" != "started" ] || [ "$service" = "acpid" ] || [ "$service" = "local" ]; then
+        pid="-"
+      else
+        pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" '$2 == s {print $1; exit}')
+        if [ -z "$pid" ]; then
+          pid=$(printf "%s\n" "$proc_list" | awk -v s="$service" 'NR>1 && index($0, s) && !/awk/ && !/orcs/ {print $1; exit}')
         fi
-        
-        status_text="${YELLOW}⚠️ ${status}${NC}"
-        if [ "$status" = "started" ]; then status_text="${GREEN}✅ ${status}${NC}"; fi
-        if [ "$status" = "stopped" ]; then status_text="${RED}❌ ${status}${NC}"; fi
-        if [ "$status" = "disabled" ]; then status_text="${YELLOW}🚫 ${status}${NC}"; fi
+        [ -z "$pid" ] && pid="-"
+      fi
 
-        printf "%s\n" "${CYAN}${service}${NC};${status_text};${MAGENTA}${pid}${NC};${BLUE}${runlevel}${NC}"
+      status_text="${YELLOW}⚠️ ${status}${NC}"
+      if [ "$status" = "started" ]; then status_text="${GREEN}✅ ${status}${NC}"; fi
+      if [ "$status" = "stopped" ]; then status_text="${RED}❌ ${status}${NC}"; fi
+      if [ "$status" = "disabled" ]; then status_text="${YELLOW}🚫 ${status}${NC}"; fi
+
+      printf "%s\n" "${CYAN}${service}${NC};${status_text};${MAGENTA}${pid}${NC};${BLUE}${runlevel}${NC}"
     done
   )
 
   # Apply the view filter.
   case "$view_flag" in
-    "active")
-      data_to_sort=$(printf "%s\n" "$data_to_filter" | grep "✅")
-      ;;
-    "inactive")
-      data_to_sort=$(printf "%s\n" "$data_to_filter" | grep -E "❌|🚫")
-      ;;
-    *) # Default to "all"
-      data_to_sort="$data_to_filter"
-      ;;
+  "active")
+    data_to_sort=$(printf "%s\n" "$data_to_filter" | grep "✅")
+    ;;
+  "inactive")
+    data_to_sort=$(printf "%s\n" "$data_to_filter" | grep -E "❌|�")
+    ;;
+  *) # Default to "all"
+    data_to_sort="$data_to_filter"
+    ;;
   esac
 
   # Sort the filtered data based on the chosen option.
   case "$sort_by" in
-    "name")
-      # Sort by service name (column 1).
-      sorted_data=$(printf "%s\n" "$data_to_sort" | sort -t ';' -k 1,1)
-      ;;
-    *) # Default to runlevel
-      # Sort by runlevel (column 4), then by service name (column 1).
-      sorted_data=$(printf "%s\n" "$data_to_sort" | sort -t ';' -k 4,4 -k 1,1)
-      ;;
+  "name")
+    # Sort by service name (column 1).
+    sorted_data=$(printf "%s\n" "$data_to_sort" | sort -t ';' -k 1,1)
+    ;;
+  *) # Default to runlevel
+    # Sort by runlevel (column 4), then by service name (column 1).
+    sorted_data=$(printf "%s\n" "$data_to_sort" | sort -t ';' -k 4,4 -k 1,1)
+    ;;
   esac
 
   # Format the final output into a neat table.
@@ -111,25 +120,25 @@ display_service_table() {
 
 # Manages a single service (start, stop, restart).
 manage_service() {
-    action="$1"
-    service_name="$2"
+  action="$1"
+  service_name="$2"
 
-    if [ -z "$service_name" ]; then
-        print_error "Error: Missing service name. Usage: orcs $action <SERVICE_NAME>"
-        exit 1
-    fi
+  if [ -z "$service_name" ]; then
+    print_error "Error: Missing service name. Usage: orcs $action <SERVICE_NAME>"
+    exit 1
+  fi
 
-    printf "Service: %s\n" "${CYAN}${service_name}${NC}"
-    printf "Action:  %s\n" "${BOLD}${action}${NC}"
-    
-    printf "Status before: "
-    sudo rc-service "$service_name" status
-    
-    printf "\n"
-    sudo rc-service "$service_name" "$action"
-    
-    printf "\nStatus after:  "
-    sudo rc-service "$service_name" status
+  printf "Service: %s\n" "${CYAN}${service_name}${NC}"
+  printf "Action:  %s\n" "${BOLD}${action}${NC}"
+
+  printf "Status before: "
+  sudo rc-service "$service_name" status
+
+  printf "\n"
+  sudo rc-service "$service_name" "$action"
+
+  printf "\nStatus after:  "
+  sudo rc-service "$service_name" status
 }
 
 # --- Main Execution Logic ---
@@ -153,10 +162,10 @@ show_help() {
 
 main() {
   case "$1" in
-    start|stop|restart)
-      manage_service "$1" "$2"
-      exit 0
-      ;;
+  start | stop | restart)
+    manage_service "$1" "$2"
+    exit 0
+    ;;
   esac
 
   sort_by=""
