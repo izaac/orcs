@@ -14,13 +14,13 @@ You can install ORCS with a single command using `curl` or `wget`. This will dow
 **With `curl`:**
 
 ```sh
-curl -fsSL [https://raw.githubusercontent.com/izaac/orcs/main/install.sh](https://raw.githubusercontent.com/izaac/orcs/main/install.sh) | sh
+curl -fsSL https://raw.githubusercontent.com/izaac/orcs/main/install.sh | sh
 ```
 
 **With `wget`:**
 
 ```sh
-wget -qO- [https://raw.githubusercontent.com/izaac/orcs/main/install.sh](https://raw.githubusercontent.com/izaac/orcs/main/install.sh) | sh
+wget -qO- https://raw.githubusercontent.com/izaac/orcs/main/install.sh | sh
 ```
 
 ### Manual Installation
@@ -29,27 +29,27 @@ If you prefer to install manually, for example after cloning from Git:
 
 1. **Navigate to the project directory.**
 
-    ```sh
-    cd orcs-project
-    ```
+   ```sh
+   cd orcs-project
+   ```
 
 2. **Create a symbolic link to the `orcs` executable from a directory in your PATH.**
-    This makes the `orcs` command available system-wide while keeping the project files self-contained. A standard location is `~/.local/bin/`.
+   This makes the `orcs` command available system-wide while keeping the project files self-contained. A standard location is `~/.local/bin/`.
 
-    ```sh
-    # Ensure the target directory exists
-    mkdir -p ~/.local/bin
+   ```sh
+   # Ensure the target directory exists
+   mkdir -p ~/.local/bin
 
-    # Create the symbolic link (use 'pwd' to get the absolute path)
-    ln -s "$(pwd)/bin/orcs" ~/.local/bin/orcs
-    ```
+   # Create the symbolic link (use 'pwd' to get the absolute path)
+   ln -s "$(pwd)/bin/orcs" ~/.local/bin/orcs
+   ```
 
 3. **Ensure `~/.local/bin` is in your shell's `PATH`.**
-    Most modern systems configure this automatically. You can check by running `echo $PATH`. If it's not present, add the following line to your shell's startup file (e.g., `~/.bashrc`, `~/.zshrc`):
+   Most modern systems configure this automatically. You can check by running `echo $PATH`. If it's not present, add the following line to your shell's startup file (e.g., `~/.bashrc`, `~/.zshrc`):
 
-    ```sh
-    export PATH="$HOME/.local/bin:$PATH"
-    ```
+   ```sh
+   export PATH="$HOME/.local/bin:$PATH"
+   ```
 
 ---
 
