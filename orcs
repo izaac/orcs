@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+
+# orcs
+# This is a Bash wrapper script for the OpenRC status tool.
+# It calls the orcs.awk script for parsinf and formatting
+
+# Exit immediately if a command exits with a non-zero status.
+# Treat unset variables as an error when substituting.
+# The return value of a pipeline is the status of the last command to exit with a non-zero status.
+set -euo pipefail
+
+# Determine the directory of the script to correctly source files.
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+
+# Check that the style.sh file exists before sourcing it.
+if [[ ! -f "${SCRIPT_DIR}/style.sh" ]]; then
+  echo "Error: style.sh not found in the script directory." >&2
+  exit 1
+fi
+source "${SCRIPT_DIR}/style.sh"
+
+# Function to get and display services
+get_and_display_services() {
+  local view_flag="$1"
+  local sort_by="$2"
+
+  local all_output
+  if ! all_output=$(sudo rc-status --all 2>&1); then
+    print_error "Error running 'rc-status --all':"
+    echo "$all_output" >&2
+    return 1
+  fi
+
+  local unused_output
+  if ! unused_output=$(sudo rc-status --unused 2>&1); then
+    print_error "Error running 'rc-status --unused':"
+    echo "$unused_output" >&2
+    return 1
+  fi
+
+  local sort_key=4
+  if [[ "$sort_by" == "name" ]]; then
+    sort_key=1
+  fi
+
+  local formatted_output
+  # Combine outputs and pipe to awk for parsing and formatting.
+  # Pass all necessary variables to awk
+  formatted_output=$(
+    printf '%s\n' "$all_output" "$unused_output" | "${SCRIPT_DIR}/orcs.awk" -v GREEN="$GREEN" -v RED="$RED" -v YELLOW="$YELLOW" -v CYAN="$CYAN" -v MAGENTA="$MAGENTA" -v NC="$NC" -v view_flag="$view_flag" | sort -t ';' -k "$sort_key"
+  )
+
+  # Print the header and use column to format the output into a table.
+  printf "%s;%s;%s;%s\n" "${GREEN}Service" "Status" "PID" "Runlevel${NC}" | column -s';' -t
+  printf "%s\n" "${GREEN}-----------------------------------------------------------------------${NC}"
+  echo "$formatted_output" | column -s';' -t
+}
+
+# Function to display the help message
+show_help() {
+  print_info "Usage: orcs [OPTIONS]"
+  echo ""
+  print_info "Options:"
+  printf "  %s%s%s            Display only active services (default)\n" "${BOLD}" "-a, --active" "${NC}"
+  printf "  %s%s%s          Display inactive (stopped or disabled) services\n" "${BOLD}" "-i, --inactive" "${NC}"
+  printf "  %s%s%s               Display all services, active and inactive\n" "${BOLD}" "-A, --all" "${NC}"
+  printf "  %s%s%s         Sort services alphabetically by name\n" "${BOLD}" "-s, --sort-name" "${NC}"
+  printf "  %s%s%s     Sort services alphabetically by runlevel\n" "${BOLD}" "-r, --sort-runlevel" "${NC}"
+  printf "  %s%s%s              Show this help message and exit\n" "${BOLD}" "-h, --help" "${NC}"
+}
+
+# Main
+main() {
+  local sort_by=""
+  local view_flag="active"
+
+  # Parse arguments
+  for arg in "$@"; do
+    case "$arg" in
+    -a | --active) view_flag="active" ;;
+    -i | --inactive) view_flag="inactive" ;;
+    -A | --all) view_flag="all" ;;
+    -s | --sort-name) sort_by="name" ;;
+    -r | --sort-runlevel) sort_by="runlevel" ;;
+    -h | --help)
+      show_help
+      return 0
+      ;;
+    *) print_warning "Unknown argument: $arg. Ignoring." ;;
+    esac
+  done
+
+  get_and_display_services "$view_flag" "$sort_by"
+}
+
+main "$@"
