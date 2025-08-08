@@ -30,3 +30,4 @@ $2 == "[" {
 NF == 1 && !/^Runlevel/ && !/^Dynamic/ {
     printf "%s;disabled;disabled\n", $1
 }
+
