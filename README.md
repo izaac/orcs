@@ -89,7 +89,7 @@ sudo orcs start docker
 
 ## Disclaimer
 
-This tool is an independent project and is not affiliated with or endorsed by the official OpenRC project.  
+This tool is an independent project and is not affiliated with or endorsed by the official [OpenRC](https://github.com/OpenRC/openrc) project.  
 It is a wrapper script designed for convenience and should be used at your own risk.  
 The authors are not responsible for any damage to your system.  
 When in doubt, always use the official `rc-service` and `rc-status` commands directly.
